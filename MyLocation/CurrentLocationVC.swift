@@ -11,6 +11,7 @@ import CoreLocation
 
 class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
     @IBOutlet weak var latitudeLbl: UILabel!
+    @IBOutlet weak var getLocationBtn: UIButton!
     @IBOutlet weak var addresslbl: UILabel!
     @IBOutlet weak var messageLbl: UILabel!
     @IBOutlet weak var longtitudeLbl: UILabel!
@@ -20,8 +21,10 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
     var updateLocation = false
     var lastError : NSError?
     override func viewDidLoad() {
-        updateLabels()
+        
         super.viewDidLoad()
+        updateLabels()
+        configureButton()
         // Do any additional setup after loading the view, typically from a nib.
     }
 
@@ -44,6 +47,7 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
             locationManger.delegate = nil
             updateLocation = false
         }
+        updateLabels()
         
     }
     func updateLabels(){
@@ -67,8 +71,7 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
             else if !CLLocationManager.locationServicesEnabled(){
                     statusString = "Location Service Unenabled"
                 }else if updateLocation {
-                    statusString = "Searching"
-                    updateLocation = false
+                    statusString = "Searching...."
                 }else{
                     statusString = "Tag Get Location to get locations"
                 }
@@ -76,6 +79,14 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
             messageLbl.text = statusString
         }
         
+    }
+    
+    func configureButton(){
+        if updateLocation{
+            getLocationBtn.setTitle("Stop", for: .normal)
+        }else{
+            getLocationBtn.setTitle("Get Location", for: .normal)
+        }
     }
     // MARK: - Button Action
     @IBAction func getLocation(_ sender: AnyObject) {
@@ -85,14 +96,19 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
             return
         }
         if authStatus == .restricted || authStatus ==  .denied {
-            showTurnOnLocaitonAlert()
+            //showTurnOnLocaitonAlert()
             self.locationManger.requestWhenInUseAuthorization()
             return
         }
-        
-    
-        startLocationManger()
+        if updateLocation{
+            stopLocationManger()
+        }else{
+            lastError = nil
+            location = nil
+            startLocationManger()
+        }
         updateLabels()
+        configureButton()
     }
     
     func showTurnOnLocaitonAlert(){
@@ -116,14 +132,30 @@ class CurrentLocationVC: UIViewController, CLLocationManagerDelegate {
             // stops when see errors
             stopLocationManger()
             updateLabels()
+            configureButton()
         }
     }
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         let newLocation = locations.last!
         print("the location is : \(newLocation)")
-        lastError = nil
-        location = newLocation
-        updateLabels()
+        
+        if newLocation.timestamp.timeIntervalSinceNow < -5 {
+            return
+        }
+        if newLocation.horizontalAccuracy < 0 {
+            return
+        }
+        // if location (past) accuracy < newLocation => GO ON
+        if location == nil || (location?.horizontalAccuracy)! > newLocation.horizontalAccuracy{
+            lastError = nil
+            location = newLocation
+            updateLabels()
+        }
+        if newLocation.horizontalAccuracy <= locationManger.desiredAccuracy  {
+            stopLocationManger()
+            configureButton()
+            print("Stop location manger")
+        }
         
     }
 
